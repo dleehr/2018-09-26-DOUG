@@ -121,6 +121,17 @@ or
 
 ![openshift-ui-new](openshift-ui-new.png "Openshift UI - New Application")
 
+---
+
+## Sounds great, right?
+
+Generate an openshift "app" using a docker image and save the YAML out.
+
+- Darin London showed us this technique
+- YAML can easily be edited and versioned
+- More attractive than writing k8s YAML out longhand
+
+---
 ```
 oc new-app
 
@@ -138,15 +149,6 @@ components you have provided.
 
 If you provide source code, a new build will be automatically triggered. You can use 'oc status' to check the progress.
 ```
-
----
-## Sounds great, right?
-
-Generate an openshift "app" using a docker image and save the YAML out.
-
-- Darin London showed us this technique
-- YAML can easily be edited and versioned
-- More attractive than writing k8s YAML out longhand
 
 ---
 
