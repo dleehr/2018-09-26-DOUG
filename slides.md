@@ -425,6 +425,8 @@ _Why can't I just run **my docker images**, isn't that the whole point?_
 ---
 ## Because.
 
+_Why can't I just run **my docker images**, isn't that the whole point?_
+
 1. **Security**. Principle of least privilege should still apply, even inside containers.
 2. No, Docker is an implementation detail.
 
