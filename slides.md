@@ -42,8 +42,6 @@ Collection of services to run reproducible computational workflows on Openstack 
 
 ## Step 2: Deployment
 
-(Do I want to drop this slide?)
-
 Ansible playbooks: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
 ```
 - name: Create app container
@@ -123,31 +121,27 @@ or
 
 ---
 
-## Sounds great, right?
+## Just what I wanted
 
 Generate an openshift "app" using a docker image and save the YAML out.
 
-- Darin London showed us this technique
-- YAML can easily be edited and versioned
+- Up and running quickly (like a GUI)
+- Editable, understandable, versionable configs
 - More attractive than writing k8s YAML out longhand
 
 ---
+
+## oc new-app
+
 ```
-oc new-app
+Create a new application by specifying source code,
+templates, and/or images
 
-Create a new application by specifying source code, templates, and/or images
-
-This command will try to build up the components of an application using images, templates, or code that has a public
-repository. It will lookup the images on the local Docker installation (if available), a Docker registry, an integrated
-image stream, or stored templates.
-
-If you specify a source code URL, it will set up a build that takes your source code and converts it into an image that
-can run inside of a pod. Local source must be in a git repository that has a remote repository that the server can see.
-The images will be deployed via a deployment configuration, and a service will be connected to the first public port of
-the app. You may either specify components using the various existing flags or let new-app autodetect what kind of
-components you have provided.
-
-If you provide source code, a new build will be automatically triggered. You can use 'oc status' to check the progress.
+This command will try to build up the components of an
+application using images, templates, or code that has a
+public repository. It will lookup the images on the local
+Docker installation (if available), a Docker registry, an
+integrated image stream, or stored templates.
 ```
 
 ---
@@ -156,253 +150,39 @@ If you provide source code, a new build will be automatically triggered. You can
 
 I've already got Docker images, **how hard could it be**?
 
-- `oc new-app docker-image` for each image
-- Tweak YAML for `ENV` vars
+- `oc new-app <image>` for each service
+- Tweak YAML for config/secrets
 - This will be done in like 5 minutes, right?<!-- .element: class="fragment" -->
 ```
 # Generate DeploymentConfigs from docker images
 oc new-app postgres:9.5 \
-  --dry-run=true -o yaml > bespin-db.yml
-oc new-app dukegcb/bespin-api:apache \
-  --dry-run=true -o yaml > bespin-api.yaml
+    --dry-run=true -o yaml > bespin-db.yml
+oc new-app dukegcb/bespin-api:1.2.2-apache \
+    --dry-run=true -o yaml > bespin-api.yaml
 # Tweak YAML
 oc create -f bespin-db.yml
 oc create -f bespin-api.yml
 ```
 <!-- .element: class="fragment" -->
+
 ---
-## postgres:9.5 DeploymentConfig
+
+## Nope
 
 ```
-apiVersion: v1
-items:
-- apiVersion: v1
-  kind: ImageStream
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: postgres
-    name: postgres
-  spec:
-    lookupPolicy:
-      local: false
-    tags:
-    - annotations:
-        openshift.io/imported-from: postgres:9.5
-      from:
-        kind: DockerImage
-        name: postgres:9.5
-      generation: null
-      importPolicy: {}
-      name: "9.5"
-      referencePolicy:
-        type: ""
-  status:
-    dockerImageRepository: ""
-- apiVersion: v1
-  kind: DeploymentConfig
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: postgres
-    name: postgres
-  spec:
-    replicas: 1
-    selector:
-      app: postgres
-      deploymentconfig: postgres
-    strategy:
-      resources: {}
-    template:
-      metadata:
-        annotations:
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: postgres
-          deploymentconfig: postgres
-      spec:
-        containers:
-        - image: postgres:9.5
-          name: postgres
-          ports:
-          - containerPort: 5432
-            protocol: TCP
-          resources: {}
-          volumeMounts:
-          - mountPath: /var/lib/postgresql/data
-            name: postgres-volume-1
-        volumes:
-        - emptyDir: {}
-          name: postgres-volume-1
-    test: false
-    triggers:
-    - type: ConfigChange
-    - imageChangeParams:
-        automatic: true
-        containerNames:
-        - postgres
-        from:
-          kind: ImageStreamTag
-          name: postgres:9.5
-      type: ImageChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
-- apiVersion: v1
-  kind: Service
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: postgres
-    name: postgres
-  spec:
-    ports:
-    - name: 5432-tcp
-      port: 5432
-      protocol: TCP
-      targetPort: 5432
-    selector:
-      app: postgres
-      deploymentconfig: postgres
-  status:
-    loadBalancer: {}
-kind: List
-metadata: {}
+initdb: could not change permissions of directory "/var/lib/postgresql/data": Operation not permitted
+fixing permissions on existing directory /var/lib/postgresql/data ...
+```
 
 ```
----
-## bespin-api:1.2.2-apache DeploymentConfig
+(13)Permission denied: AH00023: Couldn't create the
+  rewrite-map mutex (file /var/lock/apache2/rewrite-map.19)
+AH00016: Configuration Failed
+Action '-DFOREGROUND' failed.
+```
 
-```
-apiVersion: v1
-items:
-- apiVersion: v1
-  kind: ImageStream
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: bespin-api
-    name: bespin-api
-  spec:
-    lookupPolicy:
-      local: false
-    tags:
-    - annotations:
-        openshift.io/imported-from: dukegcb/bespin-api:1.2.2-apache
-      from:
-        kind: DockerImage
-        name: dukegcb/bespin-api:1.2.2-apache
-      generation: null
-      importPolicy: {}
-      name: 1.2.2-apache
-      referencePolicy:
-        type: ""
-  status:
-    dockerImageRepository: ""
-- apiVersion: v1
-  kind: DeploymentConfig
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: bespin-api
-    name: bespin-api
-  spec:
-    replicas: 1
-    selector:
-      app: bespin-api
-      deploymentconfig: bespin-api
-    strategy:
-      resources: {}
-    template:
-      metadata:
-        annotations:
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: bespin-api
-          deploymentconfig: bespin-api
-      spec:
-        containers:
-        - image: dukegcb/bespin-api:1.2.2-apache
-          name: bespin-api
-          ports:
-          - containerPort: 443
-            protocol: TCP
-          - containerPort: 80
-            protocol: TCP
-          - containerPort: 8000
-            protocol: TCP
-          resources: {}
-          volumeMounts:
-          - mountPath: /srv/ui
-            name: bespin-api-volume-1
-        volumes:
-        - emptyDir: {}
-          name: bespin-api-volume-1
-    test: false
-    triggers:
-    - type: ConfigChange
-    - imageChangeParams:
-        automatic: true
-        containerNames:
-        - bespin-api
-        from:
-          kind: ImageStreamTag
-          name: bespin-api:1.2.2-apache
-      type: ImageChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
-- apiVersion: v1
-  kind: Service
-  metadata:
-    annotations:
-      openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    labels:
-      app: bespin-api
-    name: bespin-api
-  spec:
-    ports:
-    - name: 80-tcp
-      port: 80
-      protocol: TCP
-      targetPort: 80
-    - name: 443-tcp
-      port: 443
-      protocol: TCP
-      targetPort: 443
-    - name: 8000-tcp
-      port: 8000
-      protocol: TCP
-      targetPort: 8000
-    selector:
-      app: bespin-api
-      deploymentconfig: bespin-api
-  status:
-    loadBalancer: {}
-kind: List
-metadata: {}
-```
+![crash-loop](crash-loop.png "Postgres Crash Loop")
+
 ---
 
 ## You're Not Root Here
@@ -417,18 +197,17 @@ metadata: {}
   - `useradd -r -g postgres --uid=999`
 - **bespin-api:1.2.2-apache**
   - `PORT` 80/443, Apache with mod_wsgi
-  - `VOLUME` for TLS certs and Web UI
-  - Not exactly a microservice
+  -
 
 _Why can't I just run **my docker images**, isn't that the whole point?_
 
 ---
-## Because.
+## No
 
 _Why can't I just run **my docker images**, isn't that the whole point?_
 
 1. **Security**. Principle of least privilege should still apply, even inside containers.
-2. No, Docker is an implementation detail.
+2. Docker is an implementation detail.
 
 _The point is to build, deploy, update, rollback, and scale applications easily._
 
@@ -457,10 +236,14 @@ Focus on three services:
 oc new-app centos/postgresql-95-centos7 \
   --dry-run=true -o yaml > bespin-db.yml
 ```
+<!-- .element: class="fragment" -->
+
+
+![postgres-running](postgres-running.png "Postgres Running")<!-- .element: class="fragment" -->
 
 ---
 
-## Running Bespin API
+## Running Bespin-API
 
 **Goal**: Run my Python+Apache+JavaScript image, connect to Postgres.
 
@@ -470,20 +253,24 @@ oc new-app centos/postgresql-95-centos7 \
 2. Just run the Python application.<!-- .element: class="fragment" -->
 
 ---
-## Running Bespin API
+## Running Bespin-API
 
 **Goal**: Run my Python application, connect it to Postgres.
 
-- Openshift is a PaaS, can run apps from source
-- **S2I** (Source to Image) produces compatible Docker images without Dockerfile
-- Easy to try locally, may require some code changes
+- Openshift is PaaS, give it source code!
+- Uses **S2I** (Source to Image) to build app images
+- **S2I** can be installed locally for development.
 
+<div>
 ```
-$ s2i build . centos/python-27-centos7 bespin-api
+$ s2i build <code_dir> centos/python-27-centos7 bespin-api
 $ docker run bespin-api whoami
 default
 ```
+
 _Look Ma, no Dockerfile and no root_
+</div>
+<!-- .element: class="fragment" -->
 
 ---
 ## Changes to Bespin API
@@ -492,7 +279,7 @@ _Look Ma, no Dockerfile and no root_
 - Use gunicorn instead of Apache/mod_wsgi
 - Set build-time ENV vars in `.s2i/environment`
 
-_That looks less like a monolith anyways_
+_Encouraging better practices_
 
 ---
 ## Running Bespin API
@@ -503,12 +290,11 @@ oc new-app \
   --dry-run=true -o yaml > bespin-api.yml
 ```
 
-WIP September 7, 2018 leaving off here
-
+<div>
+![bespin-api-build](bespin-api-build.png "Bespin API Build")<!-- .element: class="fragment" -->
+</div><!-- .element: class="fragment" -->
 
 How does this change the deployment?
-
-GRAPHIC HERE
 
 - `oc start-build bespin-api` is one way. That'll pull the latest github code, build a new docker image, and
 

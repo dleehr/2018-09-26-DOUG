@@ -1,1 +1,1 @@
-reveal-md slides.md --theme moon
+reveal-md slides.md --theme moon -w
