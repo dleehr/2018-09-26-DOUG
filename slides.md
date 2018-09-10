@@ -36,8 +36,8 @@ Collection of services to run reproducible computational workflows on Openstack 
   - `dukegcb/bespin-api:1.2.2`
   - `dukegcb/lando:0.8.0`
   - `postgres:9.5`
-- List of VMs where they get deployed
-  - Ansible inventory/playbooks/roles
+- Ansible playbooks & inventory
+  - Small VMs run 1-2 containers
 ---
 
 ## Step 2: Deployment
@@ -72,42 +72,26 @@ Not really automated.
 3. Edit, commit, push ansible changes
 4. Run `ansible-playbook`
 
-k8s runs Docker images, and I *really* like those, so let's dig in with a...
-
 ---
-## How's that working for you?
+![better-way](better-way.jpg "You mean there's a better way?")
 
-may drop this slide
-
-<table>
-  <tr><th>Pros</th><th>Cons</th></tr>
-  <tr><td>Versioned Deployments</td><td>Time Consuming</td></tr>
-  <tr><td>Portable Images</td><td>Manual Rollbacks</td></tr>
-  <tr><td>Quick Startup/Upgrade</td><td>Inefficient scheduling</td></tr>
-</table>
-
-
-we'd been meaning to try kubernetes so...
-
+Kubernetes runs Docker images, let's dig in with a ...
 ---
-
 # Hackday
 
 ![k8s-hackday](k8s-hackday.png "Kubernetes Hackday")
 
 Kubernetes Hackday!
-
 ---
 
 ## Openshift:
 
-- Sits on top of Kubernetes
-  - `kubectl apply -f mystuff.yaml`
-- Delivers PaaS features
-  - Deployment from source code
-  - Catalog of applications
-- Demos from Chris and Darin
-  - CLI and Web UI
+- Is a distribution of **Kubernetes**
+  - `kubectl` and YAML
+- Adds Developer friendly features
+  - Deploy from source code (PaaS)
+- `oc` CLI and Web interface
+  - Productive and Easy
 
 ---
 
@@ -121,45 +105,31 @@ or
 
 ---
 
-## Just what I wanted
+## Protip (via Darin London)
 
-Generate an openshift "app" using a docker image and save the YAML out.
+1. Generate YAML to deploy each Docker image using `oc new-app`
+2. Version/edit that YAML locally
+3. Deploy those applications using `oc create`
 
-- Up and running quickly (like a GUI)
-- Editable, understandable, versionable configs
-- More attractive than writing k8s YAML out longhand
-
----
-
-## oc new-app
-
-```
-Create a new application by specifying source code,
-templates, and/or images
-
-This command will try to build up the components of an
-application using images, templates, or code that has a
-public repository. It will lookup the images on the local
-Docker installation (if available), a Docker registry, an
-integrated image stream, or stored templates.
-```
+_Compared to writing longhand or k8s: 👍_
 
 ---
 
 ## Let's run API and DB
 
-I've already got Docker images, **how hard could it be**?
+I've already got Docker images
 
-- `oc new-app <image>` for each service
-- Tweak YAML for config/secrets
-- This will be done in like 5 minutes, right?<!-- .element: class="fragment" -->
+- This will be done in like 5 minutes, right?
+
 ```
 # Generate DeploymentConfigs from docker images
 oc new-app postgres:9.5 \
     --dry-run=true -o yaml > bespin-db.yml
+
 oc new-app dukegcb/bespin-api:1.2.2-apache \
     --dry-run=true -o yaml > bespin-api.yaml
 # Tweak YAML
+
 oc create -f bespin-db.yml
 oc create -f bespin-api.yml
 ```
@@ -193,11 +163,11 @@ Action '-DFOREGROUND' failed.
 ---
 ## Ruh-Roh
 
-- **postgres** official:
+- **postgres:9.5**
   - `useradd -r -g postgres --uid=999`
 - **bespin-api:1.2.2-apache**
   - `PORT` 80/443, Apache with mod_wsgi
-  -
+  - Permissions in `/var/lock/apache2/`
 
 _Why can't I just run **my docker images**, isn't that the whole point?_
 
@@ -215,29 +185,33 @@ _The point is to build, deploy, update, rollback, and scale applications easily.
 
 ## Starting over
 
-Focus on three services:
+Focus on three services, real-world use cases:
 
 <table>
-  <tr><th>Application</th><th>Purpose</th></tr>
-  <tr><td>PostgreSQL</td><td>Relational Database</td></tr>
+  <tr><th>Service</th><th>Purpose</th></tr>
+  <tr><td>postgres</td><td>Relational Database</td></tr>
   <tr><td>bespin-api</td><td>REST API Server (Python)</td></tr>
-  <tr><td>bespin-ui</td><td>Web UI (JS)</td></tr>
+  <tr><td>bespin-ui</td><td>Web UI (HTML/JS)</td></tr>
 </table>
 
 ---
 
-## Running PostgresQL
+## Running Postgres
 
-**Goal** Run a Postgres 9.5 database
+**Goal**: Run a Postgres 9.5 database
 
-**Solution** Use the Openshift-compatible **sclorg** image:
+<div>
+**Solution**: Use the Openshift-compatible **sclorg** image:
+</div><!-- .element: class="fragment" -->
 
+
+<div>
 ```
 oc new-app centos/postgresql-95-centos7 \
   --dry-run=true -o yaml > bespin-db.yml
 ```
-<!-- .element: class="fragment" -->
-
+_Also what you get by choosing Postgres in the catalog_
+</div><!-- .element: class="fragment" -->
 
 ![postgres-running](postgres-running.png "Postgres Running")<!-- .element: class="fragment" -->
 
@@ -245,12 +219,14 @@ oc new-app centos/postgresql-95-centos7 \
 
 ## Running Bespin-API
 
-**Goal**: Run my Python+Apache+JavaScript image, connect to Postgres.
+**Goal**: Run my Python+Apache+JavaScript image, connect it to Postgres.
 
 **Solution**:
 
-1. Don't do that.<!-- .element: class="fragment" -->
-2. Just run the Python application.<!-- .element: class="fragment" -->
+<div>
+1. Don't do that.
+2. Just run the Python application.
+</div><!-- .element: class="fragment" -->
 
 ---
 ## Running Bespin-API
@@ -258,31 +234,33 @@ oc new-app centos/postgresql-95-centos7 \
 **Goal**: Run my Python application, connect it to Postgres.
 
 - Openshift is PaaS, give it source code!
-- Uses **S2I** (Source to Image) to build app images
+- **S2I** (Source-To-Image) builds Docker images
 - **S2I** can be installed locally for development.
 
 <div>
 ```
-$ s2i build <code_dir> centos/python-27-centos7 bespin-api
+$ s2i build \
+  https://github.com/Duke-GCB/bespin-api \
+  centos/python-27-centos7 \
+  bespin-api
 $ docker run bespin-api whoami
 default
 ```
-
 _Look Ma, no Dockerfile and no root_
 </div>
 <!-- .element: class="fragment" -->
 
 ---
-## Changes to Bespin API
+## S2I Required changes
 
 - Delete the `Dockerfile`
 - Use gunicorn instead of Apache/mod_wsgi
 - Set build-time ENV vars in `.s2i/environment`
 
-_Encouraging better practices_
+_Docker is just an implementation detail_
 
 ---
-## Running Bespin API
+## Creating Openshift Build
 
 ```
 oc new-app \
@@ -294,24 +272,42 @@ oc new-app \
 ![bespin-api-build](bespin-api-build.png "Bespin API Build")<!-- .element: class="fragment" -->
 </div><!-- .element: class="fragment" -->
 
-How does this change the deployment?
+---
+## How is this different?
 
-- `oc start-build bespin-api` is one way. That'll pull the latest github code, build a new docker image, and
+- For postgres, we just pull and run the Docker image
+- For bespin-api, Openshift builds the Docker image, then runs it
 
+<div>
+Builds can be started from CLI:
+
+    oc start-build bespin-api
+
+_...or via webhook, when the base image updates, or when you click **build**_
+</div><!-- .element: class="fragment" -->
+
+---
+
+## Running Bespin-UI
 3. Bespin UI
 
-How do I build and serve my javascript frontend in openshift?
+**Goal**: Serve my HTML/JS application
 
-Bespin UI is an Ember application. Node/NPM are required to build, but the output is compiled HTML/JS that should be served statically.
+**Considerations**:
 
-- Need node to build, but don't want it in the final application image
-- two step builds!
-  - Build 1: Docker image centos/nodejs-8-centos7 + https://github.com/dleehr/bespin-ui - outputs files in `dist/` directory
-  - Build 2: 2 line Dockerfile. Uses httpd as base image (centos/httpd-24-centos7:latest), and copies `dist/` from build 1. Produces an image with just apache and the static HTML
+<div>
+- Node is required to build the app, but not to run it
+- Should serve from same domain as API (CORS/XSS)
+</div><!-- .element: class="fragment" -->
 
-[nodejs image] + [source code] -BUILD-> [artifact] + [http image] -BUILD-> [app image] -RUN-> [pod]
+---
+## Two-stage builds
 
-VVVVVVVVVV
+Can we use S2I with a second stage?
+
+<img/>
+
+<draw this>
 
 
 Making that work for production
