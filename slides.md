@@ -4,7 +4,7 @@
 
 Dan Leehr
 
-Duke Openshift Users Group | September 12, 2018
+Duke Openshift Users Group | September 26, 2018
 ---
 ![docker-logo](docker-logo.png "Docker")
 
@@ -105,7 +105,9 @@ or
 
 ---
 
-## Protip (via Darin London)
+## Protip: Work in YAML
+
+_Via Darin London_
 
 1. Generate YAML to deploy each Docker image using `oc new-app`
 2. Version/edit that YAML locally
@@ -229,7 +231,7 @@ _Also what you get by choosing Postgres in the catalog_
 </div><!-- .element: class="fragment" -->
 
 ---
-## Running Bespin-API
+## Protip: Use S2I
 
 **Goal**: Run my Python application, connect it to Postgres.
 
@@ -272,19 +274,16 @@ oc new-app \
 ![bespin-api-build](bespin-api-build.png "Bespin API Build")<!-- .element: class="fragment" -->
 </div><!-- .element: class="fragment" -->
 
+TODO: Compare to the original version
+
 ---
-## How is this different?
+## Triggering Builds
 
-- For postgres, we just pull and run the Docker image
-- For bespin-api, Openshift builds the Docker image, then runs it
-
-<div>
 Builds can be started from CLI:
 
     oc start-build bespin-api
 
 _...or via webhook, when the base image updates, or when you click **build**_
-</div><!-- .element: class="fragment" -->
 
 ---
 
@@ -309,6 +308,11 @@ Can we use S2I with a second stage?
 
 <draw this>
 
+---
+## What's left?
+
+- Host from the same domain
+- SSL termination
 
 Making that work for production
 
