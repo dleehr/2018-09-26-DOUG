@@ -383,7 +383,6 @@ Add a second `BuildConfig` to copy artifacts in `httpd` container build
         - sourcePath: /opt/app-root/src/dist
           destinationDir: "dist"
 ```
-
 ---
 ## Building Bespin-UI
 
@@ -394,14 +393,70 @@ Final bespin-ui image is just `httpd` with HTML+JS
 </div><!-- .element: class="fragment" -->
 
 ---
+## Routing and TLS
 
-## Proxying and SSL Termination
+**Goal**: Unify `http://bespin-ui:8080` and `http://bespin-api:8080` behind a single **https** route
 
-Goals:
+<div>
+**Solution**: Create a reverse proxy (httpd or nginx)
 
+*Start with a source build*
+```
+oc new-app \
+  centos/httpd-24-centos7~https://github.com/openshift/httpd-ex \
+  --name bespin-revproxy \
+  --dry-run=True -o yaml > bespin-revproxy.yml
+```
+</div><!-- .element: class="fragment" -->
 
-- Host API and UI from same domain
-- Use an Openshift route to handle https
+---
+1. Write a Proxy config:
+```
+ProxyPass "/api/" "http://bespin-api:8080/api/"
+ProxyPassReverse "/api/" "http://bespin-api:8080/api/"
+ProxyPass "/" "http://bespin-ui:8080/"
+ProxyPassReverse "/" "http://bespin-ui:8080/"
+```
+2. Import into a `ConfigMap`:
+```
+oc create configmap bespin-revproxy-config \
+  --from-file=bespin-revproxy.conf \
+  --dry-run=True -o yaml > bespin-revproxy-config.yml
+```
+3. Mount it as a volume:
+```
+spec:
+  containers:
+    volumeMounts:
+    - name: bespin-revproxy-config-volume
+      mountPath: /opt/app-root/etc/httpd.d
+      readOnly: true
+  volumes:
+    - name: bespin-revproxy-config-volume
+      configMap:
+        name: bespin-revproxy-config
+```
 
-Application doesn't need to worry about it
+---
+## Incoming traffic - https
 
+To allow incoming traffic, we must **expose** the service with a route.
+
+```
+oc expose service bespin-revproxy \
+  --dry-run=True -o yaml > bespin-revproxy-route.yml
+```
+
+Add the following to enable `https`:
+
+```
+spec:
+  tls:
+    termination: edge
+```
+
+_This will host from a subdomain, good for development_
+
+---
+## Network Diagram
+![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
