@@ -100,13 +100,13 @@ or
 
 ---
 
-## Protip: Work in YAML
+## Version deployments in YAML
 
-_Via Darin London_
+_Protip Via Darin London_
 
-1. Generate YAML to deploy each Docker image using `oc new-app`
-2. Version/edit that YAML locally
-3. Deploy those applications using `oc create`
+1. `oc new-app` to generate YAML for each Docker image
+2. Version/edit that YAML with git
+3. `oc create` to apply that YAML to the cluster
 
 _Compared to writing longhand or k8s: 👍_
 
