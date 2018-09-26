@@ -1,1 +1,1 @@
-reveal-md slides.md --theme moon -w
+reveal-md slides.md --title "DOUG 2018-09-26" --theme moon --static slides
