@@ -26,18 +26,24 @@ Collection of services to run reproducible computational workflows on Openstack 
 
 ## Step 1: Building (Dockerizing)
 
-- 1 Service -> 1 Container
-- Docker Hub: Official images or auto-build `Dockerfile`s
-  - `postgres:9.5`, `dukegcb/bespin-api:1.2.2`
-- Config and secrets to `ENV` vars
-- Docker images = 💰
+- 1 Service -> 1 Container / Image
+- Images -> Docker Hub
+  - Official images for `postgres`, `rabbitmq`
+  - Auto-build for `bespin-api`, `lando`
+- Configs & Secrets -> `ENV` vars
+
+Docker image is the 💰
 
 ---
 ## Step 2: Deployment
 
-Ansible playbooks: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
+Ansible playbooks prescribe:
 
-_Application architecture as code_
+- Images & Versions
+- Connections, Volumes, Ports
+
+_Architecture as Code_: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
+
 ```
 - name: Create app container
   docker_container:
@@ -60,8 +66,6 @@ _Application architecture as code_
 
 ## Step 3: Automation ¯\\_(ツ)_/¯
 
-Not really automated.
-
 1. Release code (`git tag`)
 2. Wait for Docker Hub to build tagged image
 3. Edit, commit, push ansible changes
@@ -70,7 +74,7 @@ Not really automated.
 ---
 ![better-way](better-way.jpg "You mean there's a better way?")
 
-Kubernetes runs Docker images, let's dig in with a ...
+Kubernetes is built for orchestrating applications from Docker images. Let's dig in with a ...
 ---
 # Hackday
 
@@ -79,14 +83,15 @@ Kubernetes runs Docker images, let's dig in with a ...
 Kubernetes Hackday!
 ---
 
-## Openshift:
+## Openshift - Star of the hackday:
 
 - Is a distribution of **Kubernetes**
-  - `kubectl` and YAML
-- Adds Developer friendly features
+  - `kubectl`, `ReplicationControllers`, helm
+- Developer friendly features
   - Deploy from source code (PaaS)
-- `oc` CLI and Web interface
-  - Productive and Easy
+  - `oc` CLI and Web interface
+
+Good place to start
 
 ---
 
@@ -108,7 +113,9 @@ _Protip Via Darin London_
 2. Version/edit that YAML with git
 3. `oc create` to apply that YAML to the cluster
 
-_Compared to writing longhand or k8s: 👍_
+_ Simpler than longhand k8s, More integrated than_:
+
+`commit, tag, push, sleep, vi, commit, ansible`.
 
 ---
 
@@ -126,17 +133,18 @@ oc new-app postgres:9.5 \
 
 oc new-app dukegcb/bespin-api:1.2.2-apache \
     --dry-run=true -o yaml > bespin-api.yaml
-# Tweak YAML
 
+# Edit YAML to set hostnames, secrets, etc
 oc create -f bespin-db.yml
 oc create -f bespin-api.yml
 ```
-<!-- .element: class="fragment" -->
 
 ---
 
 ## Nope
+![crash-loop](crash-loop.png "Postgres Crash Loop")
 
+<div>
 ```
 initdb: could not change permissions of directory "/var/lib/postgresql/data": Operation not permitted
 fixing permissions on existing directory /var/lib/postgresql/data ...
@@ -148,8 +156,8 @@ fixing permissions on existing directory /var/lib/postgresql/data ...
 AH00016: Configuration Failed
 Action '-DFOREGROUND' failed.
 ```
+</div><!-- .element: class="fragment" -->
 
-![crash-loop](crash-loop.png "Postgres Crash Loop")
 
 ---
 
@@ -160,7 +168,7 @@ Action '-DFOREGROUND' failed.
 [docs.okd.io/latest/creating_images/guidelines.html](https://docs.okd.io/latest/creating_images/guidelines.html)
 
 ---
-## Ruh-Roh
+## Can I fix that?
 
 - **postgres:9.5**
   - `useradd -r -g postgres --uid=999`
@@ -168,12 +176,13 @@ Action '-DFOREGROUND' failed.
   - `PORT` 80/443, Apache with mod_wsgi
   - Permissions in `/var/lock/apache2/`
 
-_Why can't I just run **my docker images**, isn't that the whole point?_
+_Can't I just run **my docker images**, isn't that the whole point?_
 
 ---
+_Can't I just run **my docker images**, isn't that the whole point?_
+
 ## No
 
-_Why can't I just run **my docker images**, isn't that the whole point?_
 
 1. **Security**. Principle of least privilege should still apply, even inside containers. See [Chris Collins - Musings on Cluster Security](https://docs.google.com/presentation/d/1LiF5PAwE_HpQXxAhNNr3mICFofUeVLvQ-JiHZOWv6Xg/edit?usp=sharing)
 2. Docker is an implementation detail.
@@ -182,20 +191,20 @@ _The point is to build, deploy, update, rollback, and scale applications easily.
 
 ---
 
-## Starting over
+## Trying again
 
-Focus on three services, real-world use cases:
+Deploy 3 services, following best practices
 
 <table>
-  <tr><th>Service</th><th>Purpose</th></tr>
-  <tr><td>postgres</td><td>Relational Database</td></tr>
-  <tr><td>bespin-api</td><td>REST API Server (Python)</td></tr>
-  <tr><td>bespin-ui</td><td>Web UI (HTML/JS)</td></tr>
+  <tr><th></th><th>Service</th><th>Purpose</th></tr>
+  <tr><td>1</td><td>postgres</td><td>Relational Database</td></tr>
+  <tr><td>2</td><td>bespin-api</td><td>REST API Server (Python)</td></tr>
+  <tr><td>3</td><td>bespin-ui</td><td>Web UI (HTML/JS)</td></tr>
 </table>
 
 ---
 
-## Running Postgres
+## 1. Postgres
 
 **Goal**: Run a Postgres 9.5 database
 
@@ -216,33 +225,33 @@ _Also what you get by choosing Postgres in the catalog_
 
 ---
 
-## Running Bespin-API
+## 2. Bespin-API
 
-**Goal**: Run my Python+Apache+JavaScript image with public https on port 443, connect it to Postgres.
+**Goal**: Run Python+Apache+JavaScript image with public https on port 443, connect it to Postgres.
 
 **Solution**:
 
 <div>
-1. Don't do that.
+1. That's not a best practice, don't do that.
 2. Split up all those concerns.
 </div><!-- .element: class="fragment" -->
 
 ---
-## Protip: Use S2I
+## 2. Explore Source-to-Image (S2I)
 
-**Goal**: Run my Python application, connect it to Postgres.
+**Goal**: Run bespin-api Python application, connect it to Postgres.
 
-- Openshift is PaaS, give it source code!
-- **S2I** (Source-To-Image) builds Docker images
-- **S2I** can be installed locally for development.
+**Solution**: `oc new-app` with a git url.
+- Builds image from source using **S2I**
+- **S2I** is a small standalone program
 
 <div>
 ```
-$ s2i build \
+MacbookPro$ s2i build \
   https://github.com/Duke-GCB/bespin-api \
   centos/python-27-centos7 \
   bespin-api
-$ docker run bespin-api whoami
+MacbookPro$ docker run bespin-api whoami
 default
 ```
 _Look Ma, no Dockerfile and no root_
@@ -250,7 +259,9 @@ _Look Ma, no Dockerfile and no root_
 <!-- .element: class="fragment" -->
 
 ---
-## S2I Required changes
+## 2. S2I May require minimal changes
+
+But they're reasonable
 
 - Delete the `Dockerfile`
 - Use gunicorn instead of Apache/mod_wsgi
@@ -259,8 +270,9 @@ _Look Ma, no Dockerfile and no root_
 _Docker is just an implementation detail_
 
 ---
-## Creating Openshift Build
+## 2. Generate YAML for bespin-api
 
+Provide source repo and optional base to `new-app`:
 ```
 oc new-app \
   python:2.7~https://github.com/Duke-GCB/bespin-api \
@@ -272,7 +284,7 @@ oc new-app \
 </div><!-- .element: class="fragment" -->
 
 ---
-## Triggering Builds
+## 2. Managing Builds
 
 Builds can be started from CLI:
 
@@ -284,17 +296,18 @@ _...or via webhook, when the base image updates, or when you click **build**_
 
 ---
 
-## Running Bespin-UI
+## 3. Bespin-UI
 
-**Goal**: Serve Ember JS application
+**Goal**: Serve Ember JS Frontend web application
 
-**Considerations**:
+**Considerations**: Requirements differ for build and run:
 
-- Ember JS app requires Node.js to **build**
-- Output is static HTML/JS, does not require Node.js
-
+- Build with `nodejs`
+- "Run" with `httpd`
+- Can I create a build from 2 different bases?
 
 ---
+
 <style>
 .container{
     display: flex;
@@ -304,9 +317,9 @@ _...or via webhook, when the base image updates, or when you click **build**_
 }
 </style>
 
-## Building Bespin-UI
+## 3. Chaining Builds
 
-[Advanced Build Operations: Chaining Builds](https://docs.openshift.com/container-platform/3.10/dev_guide/builds/advanced_build_operations.html#dev-guide-chaining-builds)
+[Openshift Docs: Chaining Builds](https://docs.openshift.com/container-platform/3.10/dev_guide/builds/advanced_build_operations.html#dev-guide-chaining-builds)
 <div class="container">
   <div class="col">
     <ul>
@@ -318,14 +331,8 @@ _...or via webhook, when the base image updates, or when you click **build**_
 ![chaining-builds](chaining-builds.png "Chaining Builds")
   </div>
 </div>
-
 ---
-## Multi-stage builds
 
-1. Build with `centos/nodejs-8-centos7`
-2. Copy output to `centos/httpd-24-centos7`
-
----
 ## Bespin-UI Stage 1
 
 From the CLI, generate the nodejs build:
@@ -384,14 +391,12 @@ Add a second `BuildConfig` to copy artifacts in `httpd` container build
 
 Final bespin-ui image is just `httpd` with HTML+JS
 
-<div>
 ![bespin-ui-build](bespin-ui-build.png "Bespin UI Build")
-</div><!-- .element: class="fragment" -->
 
 ---
 ## Routing and TLS
 
-**Goal**: Unify `http://bespin-ui:8080` and `http://bespin-api:8080` behind a single **https** route
+**Goal**: Reunite `http://bespin-ui:8080` and `http://bespin-api:8080` behind a single **https** route
 
 <div>
 **Solution**: Create a reverse proxy (httpd or nginx)
@@ -500,7 +505,7 @@ cp              Copy files and directories to and from containers.
 ---
 ## Summary
 
-Openshift makes it easier to do things right
+### Openshift encourages best practices and provides the tools to get there
 
 - Minimized privileges (not root)
 - Separation of concerns
