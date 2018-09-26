@@ -6,11 +6,13 @@ Dan Leehr
 
 Duke Openshift Users Group | September 26, 2018
 ---
-## Dockerizing
+## Why do I need to adapt?
+
 ![docker-logo](docker-logo.png "Docker")
 
 - Docker image is the currency
 - Build, ship, run
+- Can't I just run existing docker images?
 
 ---
 ## Application: Bespin
@@ -26,25 +28,16 @@ Collection of services to run reproducible computational workflows on Openstack 
 
 - 1 Service -> 1 Container
 - Docker Hub: Official images or auto-build `Dockerfile`s
-  - `postgres:9.5`, `dukegcb/bespin-api`
+  - `postgres:9.5`, `dukegcb/bespin-api:1.2.2`
 - Config and secrets to `ENV` vars
 - Docker images = 💰
+
 ---
-
-## Step 2: Deployment
-
-- List of images and versions
-  - `dukegcb/bespin-api:1.2.2`
-  - `dukegcb/lando:0.8.0`
-  - `postgres:9.5`
-- Ansible playbooks & inventory
-  - Small VMs run 1-2 containers
----
-
 ## Step 2: Deployment
 
 Ansible playbooks: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
 
+_Application architecture as code_
 ```
 - name: Create app container
   docker_container:
@@ -165,6 +158,7 @@ Action '-DFOREGROUND' failed.
 > **By default, OKD runs containers using an arbitrarily assigned user ID.** This provides additional security against processes escaping the container due to a container engine vulnerability and thereby achieving escalated permissions on the host node.
 
 [docs.okd.io/latest/creating_images/guidelines.html](https://docs.okd.io/latest/creating_images/guidelines.html)
+
 ---
 ## Ruh-Roh
 
@@ -181,7 +175,7 @@ _Why can't I just run **my docker images**, isn't that the whole point?_
 
 _Why can't I just run **my docker images**, isn't that the whole point?_
 
-1. **Security**. Principle of least privilege should still apply, even inside containers.
+1. **Security**. Principle of least privilege should still apply, even inside containers. See [Chris Collins - Musings on Cluster Security](https://docs.google.com/presentation/d/1LiF5PAwE_HpQXxAhNNr3mICFofUeVLvQ-JiHZOWv6Xg/edit?usp=sharing)
 2. Docker is an implementation detail.
 
 _The point is to build, deploy, update, rollback, and scale applications easily._
@@ -440,6 +434,10 @@ spec:
 ```
 
 ---
+## Network Diagram
+![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
+
+---
 ## Incoming traffic - https
 
 To allow incoming traffic, we must **expose** the service with a route.
@@ -460,8 +458,27 @@ spec:
 _This will host from a subdomain, good for development_
 
 ---
-## Network Diagram
-![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
+## Putting it all together
+
+```
+# Make sure we're using the right project
+oc project gcb-bespin
+
+# Create configs
+oc create -f bespin-db-config.yml
+oc create -f bespin-api-config.yml
+oc create -f bespin-revproxy-config.yml
+
+# Now create the services
+oc create -f bespin-db.yml
+oc create -f bespin-api.yml
+oc create -f bespin-ui.yml
+oc create -f bespin-revproxy.yml
+
+# Finally, create the one route into the proxy
+oc create -f bespin-revproxy-route.yml
+```
+[github.com/dleehr/hackday-bespin-api-devcloud](https://github.com/dleehr/hackday-bespin-api-devcloud)
 
 ---
 ## Bonus round
@@ -493,5 +510,6 @@ Openshift makes it easier to do things right
 ---
 ## Thank you
 
+- Email: dan.leehr@duke.edu
 - Slides: [github.com/dleehr/2018-09-26-DOUG](https://github.com/dleehr/2018-09-26-DOUG)
 - Examples: [github.com/dleehr/hackday-bespin-api-devcloud](https://github.com/dleehr/hackday-bespin-api-devcloud)
