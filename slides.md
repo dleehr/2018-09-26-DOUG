@@ -271,7 +271,7 @@ oc new-app \
 ```
 
 <div>
-![bespin-api-build](bespin-api-build.png "Bespin API Build")<!-- .element: class="fragment" -->
+![bespin-api-build](bespin-api-build.png "Bespin API Build")
 </div><!-- .element: class="fragment" -->
 
 TODO: Compare to the original version
@@ -285,50 +285,123 @@ Builds can be started from CLI:
 
 _...or via webhook, when the base image updates, or when you click **build**_
 
+<img style="width: 65%" src="bespin-api-building.png"></img>
+
 ---
 
 ## Running Bespin-UI
-3. Bespin UI
 
-**Goal**: Serve my HTML/JS application
+**Goal**: Serve Ember JS application
 
 **Considerations**:
 
+- Ember JS app requires Node.js to **build**
+- Output is static HTML/JS, does not require Node.js
+
+
+---
+<style>
+.container{
+    display: flex;
+}
+.col{
+    flex: 1;
+}
+</style>
+
+## Building Bespin-UI
+
+[Advanced Build Operations: Chaining Builds](https://docs.openshift.com/container-platform/3.10/dev_guide/builds/advanced_build_operations.html#dev-guide-chaining-builds)
+<div class="container">
+  <div class="col">
+    <ul>
+      <li>Build dependencies might increase size or introduce vulnerabilities</li>
+      <li>Chain 2 builds: 1 produces the artifact, 2 places artifact in image that runs it</li>
+    </ul>
+  </div>
+  <div class="col">
+![chaining-builds](chaining-builds.png "Chaining Builds")
+  </div>
+</div>
+
+---
+## Multi-stage builds
+
+1. Build with `centos/nodejs-8-centos7`
+2. Copy output to `centos/httpd-24-centos7`
+
+---
+## Bespin-UI Stage 1
+
+From the CLI, generate the nodejs build:
+```
+oc new-app \
+  centos/nodejs-8-centos7~https://github.com/dleehr/bespin-ui \
+  --name bespin-ui \
+  --dry-run=True -o yaml > bespin-ui.yml
+```
+
+```
+- apiVersion: v1
+  kind: BuildConfig
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: bespin-ui-ember-build:latest
+    source:
+      git:
+        uri: https://github.com/dleehr/bespin-ui
+      type: Git
+    strategy:
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          name: nodejs-8-centos7:latest
+      type: Source
+```
+
+---
+## Bespin-UI Stage 2
+
+Add a second `BuildConfig` to copy artifacts in `httpd` container build
+
+```
+- apiVersion: v1
+  kind: BuildConfig
+  spec:
+    source:
+      type: Dockerfile
+      dockerfile: |-
+        FROM centos/httpd-24-centos7:latest
+        COPY dist/* /var/www/html/
+      images:
+      - from:
+          kind: ImageStreamTag
+          name: bespin-ui-ember-build:latest
+        paths:
+        - sourcePath: /opt/app-root/src/dist
+          destinationDir: "dist"
+```
+
+---
+## Building Bespin-UI
+
+Final bespin-ui image is just `httpd` with HTML+JS
+
 <div>
-- Node is required to build the app, but not to run it
-- Should serve from same domain as API (CORS/XSS)
+![bespin-ui-build](bespin-ui-build.png "Bespin UI Build")
 </div><!-- .element: class="fragment" -->
 
 ---
-## Two-stage builds
 
-Can we use S2I with a second stage?
+## Proxying and SSL Termination
 
-<img/>
+Goals:
 
-<draw this>
 
----
-## What's left?
+- Host API and UI from same domain
+- Use an Openshift route to handle https
 
-- Host from the same domain
-- SSL termination
-
-Making that work for production
-
-- Picking on Django here but you probably have something similar.
-- Python app? Start with python base image
-- Django's included webserver is not production-quality. Doesn't terminate TLS and won't serve static files
-- Decisions, decisions: Do I want to add more containers to do these things that seem like the job of this one?
-- I've used django with apache+mod_wsgi before. that works, so `apt-get install apache` in my Dockerfile
-- Wait a minute! am I running python or apache? Making a mess, better document that and provide all kinds of configs
-- And now I need to write a script to start apache and clean up PID files? RED FLAG!
-- When do I rebuild this container? what's the inheritance graph?
-- Rails people are probably telling me I picked the wrong framework.
-
-Simple guidelines meet real world requirements. Swallow a lot of complexity for the "simplicity" of portable docker images
-
-- Web application? It should serve HTTP on a port. Development? Make the source code a volume
-- Database? grab official postgres and move on
-- tie it all together with docker-compose, easy right?
+Application doesn't need to worry about it
 
