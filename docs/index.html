@@ -21,11 +21,13 @@
 
 Dan Leehr
 
-Duke Openshift Users Group | September 26, 2018</script></section><section  data-markdown><script type="text/template">## Dockerizing
+Duke Openshift Users Group | September 26, 2018</script></section><section  data-markdown><script type="text/template">## Why do I need to adapt?
+
 ![docker-logo](docker-logo.png "Docker")
 
 - Docker image is the currency
 - Build, ship, run
+- Can't I just run existing docker images?
 </script></section><section  data-markdown><script type="text/template">## Application: Bespin
 Collection of services to run reproducible computational workflows on Openstack cloud.
 
@@ -37,21 +39,14 @@ Collection of services to run reproducible computational workflows on Openstack 
 
 - 1 Service -> 1 Container
 - Docker Hub: Official images or auto-build `Dockerfile`s
-  - `postgres:9.5`, `dukegcb/bespin-api`
+  - `postgres:9.5`, `dukegcb/bespin-api:1.2.2`
 - Config and secrets to `ENV` vars
-- Docker images = 💰</script></section><section  data-markdown><script type="text/template">
-## Step 2: Deployment
-
-- List of images and versions
-  - `dukegcb/bespin-api:1.2.2`
-  - `dukegcb/lando:0.8.0`
-  - `postgres:9.5`
-- Ansible playbooks & inventory
-  - Small VMs run 1-2 containers</script></section><section  data-markdown><script type="text/template">
-## Step 2: Deployment
+- Docker images = 💰
+</script></section><section  data-markdown><script type="text/template">## Step 2: Deployment
 
 Ansible playbooks: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
 
+_Application architecture as code_
 ```
 - name: Create app container
   docker_container:
@@ -102,13 +97,13 @@ or
 
 ![openshift-ui-new](openshift-ui-new.png "Openshift UI - New Application")
 </script></section><section  data-markdown><script type="text/template">
-## Protip: Work in YAML
+## Version deployments in YAML
 
-_Via Darin London_
+_Protip Via Darin London_
 
-1. Generate YAML to deploy each Docker image using `oc new-app`
-2. Version/edit that YAML locally
-3. Deploy those applications using `oc create`
+1. `oc new-app` to generate YAML for each Docker image
+2. Version/edit that YAML with git
+3. `oc create` to apply that YAML to the cluster
 
 _Compared to writing longhand or k8s: 👍_
 </script></section><section  data-markdown><script type="text/template">
@@ -153,7 +148,8 @@ Action '-DFOREGROUND' failed.
 
 > **By default, OKD runs containers using an arbitrarily assigned user ID.** This provides additional security against processes escaping the container due to a container engine vulnerability and thereby achieving escalated permissions on the host node.
 
-[docs.okd.io/latest/creating_images/guidelines.html](https://docs.okd.io/latest/creating_images/guidelines.html)</script></section><section  data-markdown><script type="text/template">## Ruh-Roh
+[docs.okd.io/latest/creating_images/guidelines.html](https://docs.okd.io/latest/creating_images/guidelines.html)
+</script></section><section  data-markdown><script type="text/template">## Ruh-Roh
 
 - **postgres:9.5**
   - `useradd -r -g postgres --uid=999`
@@ -166,7 +162,7 @@ _Why can't I just run **my docker images**, isn't that the whole point?_
 
 _Why can't I just run **my docker images**, isn't that the whole point?_
 
-1. **Security**. Principle of least privilege should still apply, even inside containers.
+1. **Security**. Principle of least privilege should still apply, even inside containers. See [Chris Collins - Musings on Cluster Security](https://docs.google.com/presentation/d/1LiF5PAwE_HpQXxAhNNr3mICFofUeVLvQ-JiHZOWv6Xg/edit?usp=sharing)
 2. Docker is an implementation detail.
 
 _The point is to build, deploy, update, rollback, and scale applications easily._
@@ -393,6 +389,8 @@ spec:
       configMap:
         name: bespin-revproxy-config
 ```
+</script></section><section  data-markdown><script type="text/template">## Network Diagram
+![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
 </script></section><section  data-markdown><script type="text/template">## Incoming traffic - https
 
 To allow incoming traffic, we must **expose** the service with a route.
@@ -411,8 +409,27 @@ spec:
 ```
 
 _This will host from a subdomain, good for development_
-</script></section><section  data-markdown><script type="text/template">## Network Diagram
-![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
+</script></section><section  data-markdown><script type="text/template">## Putting it all together
+
+```
+# Make sure we're using the right project
+oc project gcb-bespin
+
+# Create configs
+oc create -f bespin-db-config.yml
+oc create -f bespin-api-config.yml
+oc create -f bespin-revproxy-config.yml
+
+# Now create the services
+oc create -f bespin-db.yml
+oc create -f bespin-api.yml
+oc create -f bespin-ui.yml
+oc create -f bespin-revproxy.yml
+
+# Finally, create the one route into the proxy
+oc create -f bespin-revproxy-route.yml
+```
+[github.com/dleehr/hackday-bespin-api-devcloud](https://github.com/dleehr/hackday-bespin-api-devcloud)
 </script></section><section  data-markdown><script type="text/template">## Bonus round
 
 `oc` Troubleshooting and Debugging Commands:
@@ -438,6 +455,7 @@ Openshift makes it easier to do things right
 - Versioned deployment configs
 </script></section><section  data-markdown><script type="text/template">## Thank you
 
+- Email: dan.leehr@duke.edu
 - Slides: [github.com/dleehr/2018-09-26-DOUG](https://github.com/dleehr/2018-09-26-DOUG)
 - Examples: [github.com/dleehr/hackday-bespin-api-devcloud](https://github.com/dleehr/hackday-bespin-api-devcloud)
 </script></section></div>
