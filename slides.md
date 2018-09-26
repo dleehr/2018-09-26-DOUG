@@ -6,6 +6,7 @@ Dan Leehr
 
 Duke Openshift Users Group | September 26, 2018
 ---
+## Dockerizing
 ![docker-logo](docker-logo.png "Docker")
 
 - Docker image is the currency
@@ -43,6 +44,7 @@ Collection of services to run reproducible computational workflows on Openstack 
 ## Step 2: Deployment
 
 Ansible playbooks: [Duke-GCB/gcb-ansible-roles](https://github.com/Duke-GCB/gcb-ansible-roles)
+
 ```
 - name: Create app container
   docker_container:
@@ -117,10 +119,11 @@ _Compared to writing longhand or k8s: 👍_
 
 ---
 
-## Let's run API and DB
+## Hackday goal: Bespin on Openshift
 
-I've already got Docker images
-
+- Can I orchestrate Bespin on Openshift?
+- How about just the API and database?
+- **I've already got Docker images**
 - This will be done in like 5 minutes, right?
 
 ```
@@ -221,13 +224,13 @@ _Also what you get by choosing Postgres in the catalog_
 
 ## Running Bespin-API
 
-**Goal**: Run my Python+Apache+JavaScript image, connect it to Postgres.
+**Goal**: Run my Python+Apache+JavaScript image with public https on port 443, connect it to Postgres.
 
 **Solution**:
 
 <div>
 1. Don't do that.
-2. Just run the Python application.
+2. Split up all those concerns.
 </div><!-- .element: class="fragment" -->
 
 ---
@@ -273,8 +276,6 @@ oc new-app \
 <div>
 ![bespin-api-build](bespin-api-build.png "Bespin API Build")
 </div><!-- .element: class="fragment" -->
-
-TODO: Compare to the original version
 
 ---
 ## Triggering Builds
@@ -334,6 +335,7 @@ _...or via webhook, when the base image updates, or when you click **build**_
 ## Bespin-UI Stage 1
 
 From the CLI, generate the nodejs build:
+
 ```
 oc new-app \
   centos/nodejs-8-centos7~https://github.com/dleehr/bespin-ui \
@@ -460,3 +462,36 @@ _This will host from a subdomain, good for development_
 ---
 ## Network Diagram
 ![bespin-openshift-network](bespin-openshift-network.png "Bespin Openshift Network")
+
+---
+## Bonus round
+
+`oc` Troubleshooting and Debugging Commands:
+```
+logs            Print the logs for a resource
+rsh             Start a shell session in a pod
+rsync           Copy files between local filesystem and a pod
+port-forward    Forward one or more local ports to a pod
+debug           Launch a new instance of a pod for debugging
+exec            Execute a command in a container
+proxy           Run a proxy to the Kubernetes API server
+attach          Attach to a running container
+run             Run a particular image on the cluster
+cp              Copy files and directories to and from containers.
+```
+
+---
+## Summary
+
+Openshift makes it easier to do things right
+
+- Minimized privileges (not root)
+- Separation of concerns
+- Build from source
+- Versioned deployment configs
+
+---
+## Thank you
+
+- Slides: [github.com/dleehr/2018-09-26-DOUG](https://github.com/dleehr/2018-09-26-DOUG)
+- Examples: [github.com/dleehr/hackday-bespin-api-devcloud](https://github.com/dleehr/hackday-bespin-api-devcloud)
